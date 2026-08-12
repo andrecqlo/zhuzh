@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node edit.mjs)",
+      "Bash(sed -i 's/^console.log\\(`applied: ${CHANGES.length}, wrong: ${wrong}, collateral: ${unchanged}`\\);/console.log\\(`wrong: ${wrong}, collateral: ${unchanged}`\\);/' edit.mjs)"
+    ]
+  }
+}
