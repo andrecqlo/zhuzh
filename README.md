@@ -1,6 +1,6 @@
 # Zhuzh
 
-A zhuzh is a short, slightly odd question you ask to break up work and lift the mood — at a wrap-up, at the top of a stand-up, or when a session needs air in it.
+A zhuzh is a short, slightly odd question you ask to break up work and lift the mood — at a wrap-up, at the top of a stand-up, or when a session needs air in it. It can also be used as an icebreaker.
 
 Open the page and it rolls to one of 200 questions at random, slot-machine style. Press **Another one**, tap the card, or hit space for a different one.
 

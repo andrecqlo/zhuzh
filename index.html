@@ -3,17 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#282D37">
+<meta name="theme-color" content="#14C4B0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="description" content="A random zhuzh to open a stand-up or close a wrap-up.">
 <title>Zhuzh</title>
 <style>
   :root {
-    --orange: #FF6223;
-    --slate: #282D37;
+    --accent: #5B3DF5;      /* electric violet */
+    --accent-dark: #4227D6;
+    --ink: #0E3F4A;         /* deep teal, for text */
+    --bg: #14C4B0;          /* bright teal */
     --paper: #FFFFFF;
-    --muted: #6B7280;
+    --muted: #5C7A80;
     --cell: clamp(9rem, 26vw, 15rem);
     --q-size: clamp(1.5rem, 4.4vw, 3.25rem);
   }
@@ -36,14 +38,15 @@
       calc(1rem + env(safe-area-inset-right))
       calc(1rem + env(safe-area-inset-bottom))
       calc(1rem + env(safe-area-inset-left));
-    background: var(--slate);
-    color: var(--slate);
+    background: var(--bg);
+    color: var(--ink);
     font-family: Aptos, "Segoe UI", system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
     overflow: hidden;
   }
 
   .card {
+    position: relative;
     width: min(56rem, 100%);
     background: var(--paper);
     border-radius: 8px;
@@ -64,7 +67,7 @@
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.04em;
-    color: var(--orange);
+    color: var(--accent);
   }
 
   .window {
@@ -107,7 +110,7 @@
     font-weight: 600;
     font-size: clamp(1rem, 1.6vw, 1.125rem);
     color: var(--paper);
-    background: var(--orange);
+    background: var(--accent);
     border: 0;
     border-radius: 4px;
     min-height: 44px;
@@ -120,13 +123,75 @@
   button:disabled { opacity: 0.55; cursor: default; }
 
   button:focus-visible {
-    outline: 3px solid var(--slate);
+    outline: 3px solid var(--ink);
     outline-offset: 3px;
   }
 
   @media (hover: hover) {
-    button:not(:disabled):hover { background: #E5551A; }
+    button:not(:disabled):hover { background: var(--accent-dark); }
   }
+
+  .info {
+    position: absolute;
+    top: clamp(0.75rem, 2vw, 1.25rem);
+    right: clamp(0.75rem, 2vw, 1.25rem);
+    width: 2rem;
+    height: 2rem;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--accent);
+    border: 2px solid var(--accent);
+    font-size: 1rem;
+    font-weight: 700;
+    font-style: italic;
+    line-height: 1;
+    display: grid;
+    place-items: center;
+  }
+
+  /* The visible dot is 2rem, but the tap target extends to 44px. */
+  .info::before {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+  }
+
+  @media (hover: hover) {
+    .info:hover { background: var(--accent); color: var(--paper); }
+  }
+
+  .info[aria-expanded="true"] {
+    background: var(--accent);
+    color: var(--paper);
+  }
+
+  .info-panel {
+    position: absolute;
+    top: calc(clamp(0.75rem, 2vw, 1.25rem) + 2.5rem);
+    right: clamp(0.75rem, 2vw, 1.25rem);
+    left: clamp(0.75rem, 2vw, 1.25rem);
+    max-width: 26rem;
+    margin-left: auto;
+    z-index: 2;
+    background: var(--ink);
+    color: var(--paper);
+    border-radius: 8px;
+    padding: 1rem 1.125rem;
+    font-size: 0.9375rem;
+    line-height: 1.45;
+    text-align: left;
+    cursor: default;
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
+  .info-panel[hidden] { display: none; }
+
+  .info-panel p { margin: 0; }
 
   .hint {
     font-size: 0.8125rem;
@@ -152,6 +217,10 @@
 <body>
 
 <main class="card" id="card">
+  <button class="info" id="info" type="button" aria-expanded="false" aria-controls="info-panel" aria-label="What is a zhuzh?">i</button>
+  <div class="info-panel" id="info-panel" role="dialog" aria-label="What is a zhuzh?" hidden>
+    <p>A zhuzh is a short, slightly odd question you ask to break up work and lift the mood — at a wrap-up, at the top of a stand-up, or when a session needs air in it. It can also be used as an icebreaker.</p>
+  </div>
   <div class="number" id="number" aria-hidden="true">#000</div>
   <div class="window" id="window">
     <div class="strip settled" id="strip"></div>
@@ -480,15 +549,44 @@ function roll() {
   });
 }
 
+const info = document.getElementById("info");
+const infoPanel = document.getElementById("info-panel");
+
+function setInfo(open) {
+  infoPanel.hidden = !open;
+  info.setAttribute("aria-expanded", String(open));
+}
+
+info.addEventListener("click", event => {
+  event.stopPropagation();
+  setInfo(infoPanel.hidden);
+});
+
+// Let people select the text in the panel without re-rolling behind it.
+infoPanel.addEventListener("click", event => event.stopPropagation());
+
 button.addEventListener("click", event => {
   event.stopPropagation();
   roll();
 });
 
-card.addEventListener("click", roll);
+card.addEventListener("click", () => {
+  // A tap outside the open panel dismisses it rather than rolling.
+  if (!infoPanel.hidden) {
+    setInfo(false);
+    return;
+  }
+  roll();
+});
 
 document.addEventListener("keydown", event => {
+  if (event.key === "Escape") {
+    setInfo(false);
+    return;
+  }
   if (event.code === "Space" || event.key === " ") {
+    // Let a focused button handle its own activation.
+    if (event.target.closest && event.target.closest("button")) return;
     event.preventDefault();
     if (!event.repeat) roll();
   }
