@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#282D37">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="A random zhuzh to open a stand-up or close a wrap-up.">
+<title>Zhuzh</title>
+<style>
+  :root {
+    --orange: #FF6223;
+    --slate: #282D37;
+    --paper: #FFFFFF;
+    --muted: #6B7280;
+    --cell: clamp(9rem, 26vw, 15rem);
+    --q-size: clamp(1.5rem, 4.4vw, 3.25rem);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+  }
+
+  body {
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding:
+      calc(1rem + env(safe-area-inset-top))
+      calc(1rem + env(safe-area-inset-right))
+      calc(1rem + env(safe-area-inset-bottom))
+      calc(1rem + env(safe-area-inset-left));
+    background: var(--slate);
+    color: var(--slate);
+    font-family: Aptos, "Segoe UI", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  .card {
+    width: min(56rem, 100%);
+    background: var(--paper);
+    border-radius: 8px;
+    padding: clamp(1.5rem, 4vw, 3rem);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(1rem, 2.5vw, 1.75rem);
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  .number {
+    font-size: clamp(1.125rem, 2.2vw, 1.5rem);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+    color: var(--orange);
+  }
+
+  .window {
+    width: 100%;
+    height: var(--cell);
+    overflow: hidden;
+    position: relative;
+  }
+
+  .strip {
+    position: absolute;
+    inset: 0 0 auto 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .strip.rolling { will-change: transform, filter; }
+
+  .cell {
+    height: var(--cell);
+    flex: 0 0 var(--cell);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-size: var(--q-size);
+    line-height: 1.15;
+    font-weight: 600;
+    text-wrap: balance;
+    padding: 0 0.25rem;
+  }
+
+  .settled .cell {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+
+  button {
+    font: inherit;
+    font-weight: 600;
+    font-size: clamp(1rem, 1.6vw, 1.125rem);
+    color: var(--paper);
+    background: var(--orange);
+    border: 0;
+    border-radius: 4px;
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0.75rem 1.75rem;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  button:disabled { opacity: 0.55; cursor: default; }
+
+  button:focus-visible {
+    outline: 3px solid var(--slate);
+    outline-offset: 3px;
+  }
+
+  @media (hover: hover) {
+    button:not(:disabled):hover { background: #E5551A; }
+  }
+
+  .hint {
+    font-size: 0.8125rem;
+    color: var(--muted);
+    margin: 0;
+  }
+
+  @media (max-width: 30rem) {
+    .hint { display: none; }
+  }
+
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<main class="card" id="card">
+  <div class="number" id="number" aria-hidden="true">#000</div>
+  <div class="window" id="window">
+    <div class="strip settled" id="strip"></div>
+  </div>
+  <button id="again" type="button">Another one</button>
+  <p class="hint">Tap the card or press space for another</p>
+  <p class="visually-hidden" role="status" aria-live="polite" id="live"></p>
+</main>
+
+<script>
+const ZHUZHES = [
+  "If you were a kitchen utensil, which one would you be?",
+  "If you were a piece of office stationery, which would you be, and what condition are you in?",
+  "If your personality were a font, which font, and what size?",
+  "If you were a household appliance, which one, and what noise do you make?",
+  "If you were a tool in a shed, which one, and when were you last used?",
+  "If you were an instrument in a school orchestra, which one?",
+  "If you were an item in a hotel minibar, which one?",
+  "If you were a road sign, which one?",
+  "If you were a fairground ride, which one, and how long is the queue?",
+  "If you were a shop on a quiet high street, what would you sell?",
+  "If you were a button on a remote control, which button?",
+  "If you were a light source, which kind, and what are you lighting?",
+  "If you were a warning label, what would you say?",
+  "If you were a plant in an office, which kind, and who is keeping you alive?",
+  "If you were a parasitic animal, what would you be?",
+  "If you built a chimera out of three animals to represent your spirit animal, which three?",
+  "Which animal could you beat in a fair fight, and how would you go about it?",
+  "If you were a bird, which one, and what is your reputation in the garden?",
+  "If you had a completely useless animal sidekick, what would it be?",
+  "Which deep-sea creature is most like you before your first coffee?",
+  "If you came back as an insect, which one, and why that one?",
+  "Which animal would be worst at your job?",
+  "If you were a farm animal, which one, and what would you be judged on at the county show?",
+  "If you were a dog breed, which one, and what would you bark at?",
+  "Which mythical creature would you keep as a pet?",
+  "If you were the villain in a nature documentary, which species would you be?",
+  "If you were a cat, what would you knock off the table first?",
+  "Which extinct animal would you bring back purely for the drama?",
+  "If you lived in a zoo enclosure, what would the sign say about you?",
+  "What ice cream are you?",
+  "What is the weirdest food combination you secretly love?",
+  "If you were a crisp flavour, which one would you be?",
+  "What is your ideal breakfast, no limits, no judgement?",
+  "If you were a biscuit, which one, and what happens when you are dunked?",
+  "What food would you happily never eat again?",
+  "What is your controversial takeaway order?",
+  "If you were a hot drink, which one, and how many sugars?",
+  "What did you hate as a child and love now?",
+  "If your week so far were a sandwich, what would be in it?",
+  "What is the most overrated food, and what deserves its place?",
+  "If you opened a restaurant with one dish on the menu, what would you serve?",
+  "What do you eat in a way other people find suspicious?",
+  "If you were a cheese, which one, and how does the room react to you?",
+  "If you were a breakfast cereal, what would the box promise?",
+  "What is the best thing you have ever eaten standing up?",
+  "What is the most useless superpower you would still happily accept?",
+  "If you could teleport, but only ever to one place, where?",
+  "What does your superhero costume look like, and what is the one impractical detail?",
+  "If you could pause time for ten minutes a day, when would you use it?",
+  "Which superpower would you misuse almost immediately?",
+  "If you could read the mind of one type of animal, which type?",
+  "What is your walk-on music?",
+  "If you had a catchphrase that appeared on screen as a subtitle, what would it say?",
+  "What is your likely villain origin story?",
+  "If you woke up fluent in one more language, which one, and who would you annoy with it?",
+  "What is your special move in a fighting game, and what is it called?",
+  "If a siren went off just before you got grumpy, what would it sound like?",
+  "If your mood came with a weather forecast, what is today's?",
+  "What would you do with three extra hours a week and no obligations?",
+  "If you were to win at something against 100 people, what task would it be?",
+  "What would you win a medal for at the Household Olympics?",
+  "What niche competition would you enter tomorrow?",
+  "If you had to go on a game show, which one, and how far would you get?",
+  "What are you probably the best in this room at?",
+  "What would you be a nightmare teammate at?",
+  "What is the pettiest thing you have ever competed over?",
+  "What is the most impressive thing you can do in under ten seconds?",
+  "What is your pub quiz specialist subject?",
+  "Which competition would you rig, and how?",
+  "What is the most pointless trophy, badge or certificate you have ever been given?",
+  "Which board game brings out your worst side?",
+  "What is true for you today that was also true when you were 10 years old?",
+  "What would your 10-year-old self be most confused about in your life now?",
+  "What did you want to be when you grew up, and how close did you get?",
+  "What is the first thing you remember choosing for yourself?",
+  "What was your most-played song at 14?",
+  "What did you spend your first wages on?",
+  "What is the oldest thing you still own and use?",
+  "What phase did you go through that you refuse to be embarrassed about?",
+  "What did you assume every household did, until you found out otherwise?",
+  "Which habit did you pick up from someone else without noticing?",
+  "What was your childhood party trick?",
+  "What advice were you given that you have never once taken?",
+  "What did you collect, and where did the collection end up?",
+  "What is the most rebellious thing you did at school?",
+  "If your teenage bedroom wall were a mood board, what was on it?",
+  "What fictional world or TV show universe would you live in for one year?",
+  "Which fictional character would be a nightmare colleague?",
+  "Who plays you in the film, and who plays your boss?",
+  "What genre is your life in at the moment?",
+  "Which fictional family would you spend a bank holiday with?",
+  "Which fictional food do you most want to try?",
+  "Which fictional vehicle do you want the keys to?",
+  "Which fictional technology should exist by now?",
+  "Which villain has a fair point?",
+  "Which film can you quote most of?",
+  "If your life had a narrator, whose voice is it, and what do they keep getting wrong?",
+  "If this team were a sitcom, which one, and which character are you?",
+  "Which book would you read again if you could wipe your memory of it?",
+  "Which fictional detective should investigate who ate your lunch?",
+  "If your life had a title sequence, what happens in it?",
+  "What would you do all day in a world with no money?",
+  "Which job would you be surprisingly good at?",
+  "Which job would you be catastrophically bad at?",
+  "If you taught a one-hour class on anything, what would you teach?",
+  "If you opened a pub, what would you call it, and what is on tap?",
+  "Which podcast would you actually finish making?",
+  "If you were paid to judge one thing professionally, what would you judge?",
+  "Professional queuer, professional tester, or professional napper — which, and why?",
+  "What niche museum would you open?",
+  "If you ran a tiny island, what would the one law be?",
+  "If you had a stall at a village fete, what would you run?",
+  "What is the most boring thing you find genuinely thrilling?",
+  "What do you always say yes to and immediately regret?",
+  "What is your most-used app that you would rather not admit to?",
+  "What is a small lie you tell often?",
+  "Which chore do you secretly enjoy?",
+  "What do you pretend to understand?",
+  "What is the strangest thing you have looked up this month?",
+  "What is your unnecessary ritual before starting work?",
+  "What is in your bag that has no business being there?",
+  "What are you weirdly territorial about?",
+  "What is your least useful area of expertise?",
+  "What is your most reliable method of putting something off?",
+  "Which compliment do you never get but would like?",
+  "What did you get away with that you probably should not have?",
+  "What is the pettiest reason you have stopped going somewhere?",
+  "What hill are you prepared to die on?",
+  "What is the best sandwich, and what makes it work?",
+  "What is the correct order of operations for making tea?",
+  "What time of day are you at your best, and what are you useless at then?",
+  "What is your ideal bed setup, down to the number of pillows?",
+  "What is your ideal seat on a plane, train or bus, and what makes it non-negotiable?",
+  "What is the best biscuit for a work meeting, and which one has no place there?",
+  "What is the superior sauce, and what do you put it on that you probably should not?",
+  "What is your policy on unexpected phone calls?",
+  "What is the best month of the year, and what does everyone else get wrong about it?",
+  "What is the correct way to eat a Kit Kat?",
+  "Which animal is objectively the funniest, and what does it do?",
+  "What is the worst texture, and where do you keep meeting it?",
+  "What colour are you, and what shade exactly?",
+  "Which sound would you choose as your alarm if you had to enjoy it?",
+  "Which smell takes you straight back somewhere?",
+  "If you were a season, which one, and which week of it?",
+  "What is your favourite ordinary view?",
+  "What is the most beautiful useless thing you own?",
+  "What noise do you make involuntarily?",
+  "What is the best-named thing you have seen recently?",
+  "What is your ideal background noise for working?",
+  "Which word do you love the sound of, and which one makes you wince?",
+  "If you could add one rule to public transport, what would it be?",
+  "What should be banned in meetings?",
+  "Which everyday object needs redesigning?",
+  "If you could make one thing free, what would you choose?",
+  "What should there be a bank holiday for?",
+  "If you could ban one phrase, which one goes?",
+  "What should be taught in schools that is not?",
+  "If you could ring a bell at work for one thing only, what would it be for?",
+  "What would you put a small tax on?",
+  "What should have an off switch?",
+  "Which rule do you follow that nobody asked you to?",
+  "If you could rename a day of the week, which one, and to what?",
+  "What should be sold in vending machines?",
+  "What are you irrationally annoyed by?",
+  "What are the best two minutes of your average day?",
+  "Which luxury is worth every penny?",
+  "What is your favourite way to waste half an hour?",
+  "What is your ideal Tuesday evening?",
+  "What is your favourite thing to be early for?",
+  "What is your favourite item of clothing, and what condition is it in?",
+  "What is the best thing you have bought for under a tenner?",
+  "What do you always take on holiday and never use?",
+  "What last made you laugh out loud on your own?",
+  "What is the best weather, and what do you do in it?",
+  "What do you enjoy that you are objectively bad at?",
+  "You have one hour alone in an empty supermarket. What happens?",
+  "You are stuck in a lift for four hours with only what is in your pockets. What have you got?",
+  "You must give a five-minute speech on any topic, starting now. What do you pick?",
+  "You wake up as your pet for a day. How does it go?",
+  "Someone gives you a boat. What is your first move?",
+  "You are locked in a shop overnight. Which shop, and what do you do with the time?",
+  "You get one item shipped to you from anywhere in the world. What arrives?",
+  "You are hosting a chat show tonight. Who are your three guests?",
+  "You swap jobs with someone here for a week. Who, and what breaks first?",
+  "You are given a shed and no rules. What becomes of it?",
+  "You are handed the microphone at karaoke. What happens next?",
+  "You give up one convenience for a year. Which one, and how do you cope?",
+  "You get a plus-one to any event in history, as an observer only. Where do you go?",
+  "You have to teach a robot one human skill. Which do you choose?",
+  "What is on your blue plaque?",
+  "What is your signature dance move called?",
+  "What is on your coat of arms, and what is the motto?",
+  "What is the title of your memoir?",
+  "What would you name a boat, a cat, and a Wi-Fi network?",
+  "What does your fortune cookie say when you crack it open?",
+  "Which tradition would you like to start?",
+  "What goes in a time capsule opened in 50 years?",
+  "What advice would you tape inside a drawer for the next person?",
+  "What should this team do in your honour on a random Wednesday?",
+  "What is the question you would most like to be asked at a wrap-up?"
+];
+
+const strip = document.getElementById("strip");
+const numberEl = document.getElementById("number");
+const button = document.getElementById("again");
+const card = document.getElementById("card");
+const live = document.getElementById("live");
+
+const DECOYS = 12;
+const DURATION = 1100;
+const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+let current = -1;
+let rolling = false;
+// Bumped whenever the number lands, so a stale counter loop can't paint over it.
+let countToken = 0;
+
+const pad = n => String(n).padStart(3, "0");
+const cellHeight = () => document.getElementById("window").getBoundingClientRect().height;
+
+function makeCell(text) {
+  const el = document.createElement("div");
+  el.className = "cell";
+  el.textContent = text;
+  return el;
+}
+
+function pickTarget() {
+  let i = Math.floor(Math.random() * ZHUZHES.length);
+  if (i === current) i = Math.floor(Math.random() * ZHUZHES.length);
+  return i;
+}
+
+function settle(index) {
+  countToken++;
+  strip.replaceChildren(makeCell(ZHUZHES[index]));
+  strip.style.transform = "translateY(0)";
+  strip.style.filter = "none";
+  strip.classList.remove("rolling");
+  strip.classList.add("settled");
+  numberEl.textContent = "#" + pad(index + 1);
+  live.textContent = "Zhuzh " + (index + 1) + ". " + ZHUZHES[index];
+  current = index;
+  rolling = false;
+  button.disabled = false;
+}
+
+function countTo(target, duration) {
+  const start = performance.now();
+  const from = current >= 0 ? current + 1 : 0;
+  const to = target + 1;
+  const token = countToken;
+
+  function frame(now) {
+    // settle() has already written the final number — stop, don't overwrite it.
+    if (token !== countToken) return;
+    const t = Math.min((now - start) / duration, 1);
+    // Same deceleration shape as the strip, so digits land with the text.
+    const eased = 1 - Math.pow(1 - t, 3);
+    if (t < 1) {
+      // Jitter mid-count so it reads as a spinning odometer, not a smooth ramp.
+      const value = Math.round(from + (to - from) * eased);
+      const jitter = t < 0.85 ? Math.floor(Math.random() * 40) - 20 : 0;
+      const shown = Math.min(Math.max(value + jitter, 1), ZHUZHES.length);
+      numberEl.textContent = "#" + pad(shown);
+      requestAnimationFrame(frame);
+    } else {
+      numberEl.textContent = "#" + pad(to);
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+function roll() {
+  if (rolling) return;
+  const target = pickTarget();
+
+  if (reduceMotion.matches) {
+    settle(target);
+    strip.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 150, easing: "ease-out" });
+    return;
+  }
+
+  rolling = true;
+  button.disabled = true;
+
+  const cells = [];
+  for (let i = 0; i < DECOYS; i++) {
+    cells.push(makeCell(ZHUZHES[Math.floor(Math.random() * ZHUZHES.length)]));
+  }
+  cells.push(makeCell(ZHUZHES[target]));
+
+  strip.classList.remove("settled");
+  strip.classList.add("rolling");
+  strip.replaceChildren(...cells);
+
+  const distance = DECOYS * cellHeight();
+
+  const animation = strip.animate(
+    [
+      { transform: "translateY(0)", filter: "blur(6px)" },
+      { transform: `translateY(-${distance + cellHeight() * 0.06}px)`, filter: "blur(0.4px)", offset: 0.88 },
+      { transform: `translateY(-${distance}px)`, filter: "blur(0px)" }
+    ],
+    { duration: DURATION, easing: "cubic-bezier(0.15, 0.85, 0.2, 1)", fill: "forwards" }
+  );
+
+  countTo(target, DURATION);
+
+  animation.finished.then(() => {
+    animation.cancel();
+    settle(target);
+  }).catch(() => {
+    settle(target);
+  });
+}
+
+button.addEventListener("click", event => {
+  event.stopPropagation();
+  roll();
+});
+
+card.addEventListener("click", roll);
+
+document.addEventListener("keydown", event => {
+  if (event.code === "Space" || event.key === " ") {
+    event.preventDefault();
+    if (!event.repeat) roll();
+  }
+});
+
+roll();
+</script>
+
+</body>
+</html>
