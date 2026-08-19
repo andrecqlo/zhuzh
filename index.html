@@ -3,19 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#14C4B0">
+<meta name="theme-color" content="#D8B7E8">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="description" content="A random zhuzh to open a stand-up or close a wrap-up.">
 <title>Zhuzh</title>
 <style>
   :root {
-    --accent: #5B3DF5;      /* electric violet */
-    --accent-dark: #4227D6;
-    --ink: #0E3F4A;         /* deep teal, for text */
-    --bg: #14C4B0;          /* bright teal */
+    --accent: #E8127E;      /* bold pink/magenta */
+    --accent-dark: #B80E64;
+    --ink: #3A1638;         /* deep plum, for text */
+    --bg-peach: #FFD9B8;    /* pastel peach */
+    --bg-violet: #C9AEEA;   /* pastel violet */
     --paper: #FFFFFF;
-    --muted: #5C7A80;
+    --muted: #8B6F87;
     --cell: clamp(9rem, 26vw, 15rem);
     --q-size: clamp(1.5rem, 4.4vw, 3.25rem);
   }
@@ -38,7 +39,7 @@
       calc(1rem + env(safe-area-inset-right))
       calc(1rem + env(safe-area-inset-bottom))
       calc(1rem + env(safe-area-inset-left));
-    background: var(--bg);
+    background: linear-gradient(135deg, var(--bg-peach), var(--bg-violet));
     color: var(--ink);
     font-family: Aptos, "Segoe UI", system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
@@ -253,7 +254,6 @@ const ZHUZHES = [
   "If you had a completely useless animal sidekick, what would it be?",
   "Which deep-sea creature is most like you before your first coffee?",
   "If you were reincarnated as an insect, which one would you want to be?",
-  "Which animal would be worst at your job?",
   "If you were a farm animal, which one, and what would you be judged on at the county show?",
   "If you were a dog breed, which one, and what would you bark at?",
   "Which mythical creature would you keep as a pet?",
@@ -268,7 +268,7 @@ const ZHUZHES = [
   "If you were a biscuit, which one, and what happens when you are dunked?",
   "What food would you happily never eat again?",
   "What is your controversial takeaway order?",
-  "If you were a hot drink, which one, and how many sugars?",
+  "If you were a hot drink, which one?",
   "What did you hate as a child and love now?",
   "If someone cooked a meal that summed up your week, what would be on the plate?",
   "What is the most overrated food, and what deserves its place?",
@@ -284,6 +284,7 @@ const ZHUZHES = [
   "Which superpower would you misuse almost immediately?",
   "If you could read the mind of one type of animal, which type?",
   "What is your walk-on music?",
+  "What is your Spotify daylist?",
   "If you had a catchphrase that appeared on screen as a subtitle, what would it say?",
   "What is your likely villain origin story?",
   "If you woke up fluent in one more language, which one, and who would you annoy with it?",
@@ -296,7 +297,6 @@ const ZHUZHES = [
   "What niche competition would you enter tomorrow?",
   "If you had to go on a game show, which one, and how far would you get?",
   "What are you quietly quite good at?",
-  "What would you be a nightmare teammate at?",
   "What is the pettiest thing you have ever competed over?",
   "What is the most impressive thing you can do in ten seconds — physical, verbal, or completely useless?",
   "What is your quiz night specialist subject?",
@@ -315,7 +315,7 @@ const ZHUZHES = [
   "Which habit did you pick up from someone else without noticing?",
   "What was your childhood party trick?",
   "What advice were you given that you have never once taken?",
-  "What did you collect, and where did the collection end up?",
+  "What do you collect, and where is that collection now?",
   "What is the most rebellious thing you did at school?",
   "If you had a whole wall to cover at 14, what would have gone on it?",
   "What fictional world or TV show universe would you live in for one year?",
@@ -375,6 +375,7 @@ const ZHUZHES = [
   "What colour are you, and what shade exactly?",
   "Which sound would you choose as your alarm if you had to enjoy it?",
   "Which smell takes you straight back somewhere?",
+  "If you could double the power of one of your senses, which one would you choose and why?",
   "If you were a season, which one, and which week of it?",
   "What is your favourite ordinary view?",
   "What is the most beautiful useless thing you own?",
@@ -459,10 +460,41 @@ function makeCell(text) {
   return el;
 }
 
+const QUEUE_KEY = "zhuzhQueue";
+
+// Fisher-Yates, excluding one index so a fresh shuffle can't re-serve the current question.
+function shuffledIndices(exclude) {
+  const indices = [];
+  for (let i = 0; i < ZHUZHES.length; i++) {
+    if (i !== exclude) indices.push(i);
+  }
+  for (let i = indices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+  return indices;
+}
+
+function loadQueue() {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem(QUEUE_KEY));
+    if (Array.isArray(parsed) && parsed.every(n => Number.isInteger(n) && n >= 0 && n < ZHUZHES.length)) {
+      return parsed;
+    }
+  } catch (e) {}
+  return null;
+}
+
+// Draws from a shuffled queue of every question so none repeats until all have been seen,
+// then reshuffles automatically — the session never runs out of options.
 function pickTarget() {
-  let i = Math.floor(Math.random() * ZHUZHES.length);
-  if (i === current) i = Math.floor(Math.random() * ZHUZHES.length);
-  return i;
+  let queue = loadQueue();
+  if (!queue || queue.length === 0) {
+    queue = shuffledIndices(current);
+  }
+  const target = queue.shift();
+  sessionStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
+  return target;
 }
 
 function settle(index) {
@@ -477,6 +509,7 @@ function settle(index) {
   current = index;
   rolling = false;
   button.disabled = false;
+  sessionStorage.setItem("zhuzhIndex", String(index));
 }
 
 function countTo(target, duration) {
@@ -592,7 +625,14 @@ document.addEventListener("keydown", event => {
   }
 });
 
-roll();
+// Reload keeps the same question within a session; only "Another one" moves on.
+const storedValue = sessionStorage.getItem("zhuzhIndex");
+const storedIndex = storedValue === null ? -1 : Number(storedValue);
+if (Number.isInteger(storedIndex) && storedIndex >= 0 && storedIndex < ZHUZHES.length) {
+  settle(storedIndex);
+} else {
+  roll();
+}
 </script>
 
 </body>
